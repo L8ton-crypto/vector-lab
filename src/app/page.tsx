@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Database, Search, Plus, Trash2, Upload, Loader2, Zap,
-  ChevronRight, BarChart3, Eye, X, Box
+  ChevronRight, BarChart3, Eye, X, Box, Menu
 } from "lucide-react";
 import { chunkText, generateEmbedding, generateEmbeddings } from "@/lib/embeddings";
 import { projectTo2D } from "@/lib/pca";
@@ -48,6 +48,7 @@ export default function Home() {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [tab, setTab] = useState<Tab>("documents");
   const [loading, setLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [modelStatus, setModelStatus] = useState<"idle" | "loading" | "ready">("idle");
   const [initDone, setInitDone] = useState(false);
 
@@ -334,8 +335,22 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex">
+      {/* Mobile header */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-zinc-950 border-b border-zinc-800 px-4 h-14 flex items-center gap-3">
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-1.5 rounded-lg hover:bg-zinc-800 transition-colors">
+          <Menu className="w-5 h-5" />
+        </button>
+        <Box className="w-4 h-4 text-indigo-400" />
+        <span className="font-bold text-sm">VectorLab</span>
+      </div>
+
+      {/* Sidebar overlay on mobile */}
+      {sidebarOpen && (
+        <div className="md:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setSidebarOpen(false)} />
+      )}
+
       {/* Sidebar */}
-      <div className="w-72 border-r border-zinc-800 flex flex-col bg-zinc-950">
+      <div className={`fixed md:static z-50 h-full w-72 border-r border-zinc-800 flex flex-col bg-zinc-950 transition-transform duration-200 ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
         <div className="p-4 border-b border-zinc-800">
           <div className="flex items-center gap-2 mb-1">
             <Box className="w-5 h-5 text-indigo-400" />
@@ -357,7 +372,7 @@ export default function Home() {
           {collections.map((col) => (
             <div
               key={col.id}
-              onClick={() => { setSelected(col); setTab("documents"); }}
+              onClick={() => { setSelected(col); setTab("documents"); setSidebarOpen(false); }}
               className={`group flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors ${
                 selected?.id === col.id ? "bg-zinc-800 text-white" : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
               }`}
@@ -394,7 +409,7 @@ export default function Home() {
       </div>
 
       {/* Main */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col pt-14 md:pt-0">
         {!selected ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center max-w-md">
