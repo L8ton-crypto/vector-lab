@@ -195,19 +195,24 @@ export default function Home() {
   const searchDocs = async () => {
     if (!selected || !query.trim()) return;
     setSearching(true);
+    setModelStatus("loading");
     try {
-      setModelStatus("loading");
-      const embedding = await generateEmbedding(query);
-      setModelStatus("ready");
-
       const res = await fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ collectionId: selected.id, embedding, topK }),
+        body: JSON.stringify({ collectionId: selected.id, query, topK }),
       });
       const data = await res.json();
-      setResults(data);
-      setSearchHighlights(new Set(data.map((r: SearchResult) => r.id)));
+      if (data.error) {
+        console.error("Search error:", data.error);
+      } else {
+        setResults(data);
+        setSearchHighlights(new Set(data.map((r: SearchResult) => r.id)));
+      }
+      setModelStatus("ready");
+    } catch (e) {
+      console.error(e);
+      setModelStatus("idle");
     } finally {
       setSearching(false);
     }
