@@ -1,35 +1,27 @@
 import { neon } from "@neondatabase/serverless";
 import { NextRequest, NextResponse } from "next/server";
 
-// Cache the pipeline in module scope (persists across warm invocations)
-let pipelineInstance: unknown = null;
-let pipelinePromise: Promise<unknown> | null = null;
+export const maxDuration = 30;
 
-async function getPipeline() {
-  if (pipelineInstance) return pipelineInstance;
-  if (pipelinePromise) return pipelinePromise;
+async function getEmbeddingFromHF(text: string): Promise<number[]> {
+  const res = await fetch(
+    "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inputs: text, options: { wait_for_model: true } }),
+    }
+  );
 
-  pipelinePromise = (async () => {
-    const { pipeline } = await import("@xenova/transformers");
-    pipelineInstance = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
-      quantized: true,
-    });
-    return pipelineInstance;
-  })();
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`HF API error: ${res.status} ${err}`);
+  }
 
-  return pipelinePromise;
+  const data = await res.json();
+  // HF returns [[...embedding...]] for single input
+  return Array.isArray(data[0]) ? data[0] : data;
 }
-
-async function generateEmbedding(text: string): Promise<number[]> {
-  const pipe = (await getPipeline()) as (
-    text: string,
-    opts: Record<string, unknown>
-  ) => Promise<{ data: Float32Array }>;
-  const output = await pipe(text, { pooling: "mean", normalize: true });
-  return Array.from(output.data);
-}
-
-export const maxDuration = 60; // Allow up to 60s for cold start model download
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,13 +32,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "collectionId required" }, { status: 400 });
     }
 
+    const sql = neon(process.env.DATABASE_URL!);
     let embedding: number[];
 
-    // Support both: pre-computed embedding OR text query
     if (body.embedding && Array.isArray(body.embedding)) {
       embedding = body.embedding;
     } else if (body.query && typeof body.query === "string") {
-      embedding = await generateEmbedding(body.query);
+      embedding = await getEmbeddingFromHF(body.query);
     } else {
       return NextResponse.json(
         { error: "Either 'embedding' array or 'query' string required" },
@@ -54,7 +46,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const sql = neon(process.env.DATABASE_URL!);
     const embeddingStr = `[${embedding.join(",")}]`;
 
     const results = await sql`
@@ -69,7 +60,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(results);
   } catch (error) {
-    console.error(error);
+    console.error("Search error:", error);
     return NextResponse.json({ error: "Search failed" }, { status: 500 });
   }
 }
