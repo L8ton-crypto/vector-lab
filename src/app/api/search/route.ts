@@ -4,11 +4,16 @@ import { NextRequest, NextResponse } from "next/server";
 export const maxDuration = 30;
 
 async function getEmbeddingFromHF(text: string): Promise<number[]> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (process.env.HF_TOKEN) {
+    headers["Authorization"] = `Bearer ${process.env.HF_TOKEN}`;
+  }
+
   const res = await fetch(
     "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2",
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ inputs: text, options: { wait_for_model: true } }),
     }
   );

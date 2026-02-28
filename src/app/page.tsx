@@ -6,7 +6,7 @@ import {
   Database, Search, Plus, Trash2, Upload, Loader2, Zap,
   ChevronRight, BarChart3, Eye, X, Box, Menu
 } from "lucide-react";
-import { chunkText, generateEmbedding, generateEmbeddings } from "@/lib/embeddings";
+import { chunkText } from "@/lib/embeddings";
 import { projectTo2D } from "@/lib/pca";
 
 interface Collection {
@@ -156,15 +156,17 @@ export default function Home() {
       const chunks = chunkText(textInput, selected.chunk_size, selected.chunk_overlap);
 
       setModelStatus("loading");
-      setProgress(`Loading embedding model...`);
-      
-      const embeddings: number[][] = [];
-      for (let i = 0; i < chunks.length; i++) {
-        setProgress(`Generating embeddings... ${i + 1}/${chunks.length}`);
-        const emb = await generateEmbedding(chunks[i]);
-        embeddings.push(emb);
-        setModelStatus("ready");
-      }
+      setProgress(`Generating embeddings (${chunks.length} chunks)...`);
+
+      const embRes = await fetch("/api/embed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ texts: chunks }),
+      });
+      const embData = await embRes.json();
+      if (!embRes.ok) throw new Error(embData.error || "Embedding failed");
+      const embeddings: number[][] = embData.embeddings;
+      setModelStatus("ready");
 
       setProgress("Storing in database...");
       const payload = chunks.map((content, i) => ({
@@ -409,7 +411,7 @@ export default function Home() {
               {modelStatus === "ready" ? "Model loaded" : modelStatus === "loading" ? "Loading model..." : "Model idle"}
             </span>
           </div>
-          <p className="text-[10px] text-zinc-700 mt-1">all-MiniLM-L6-v2 (384d) - runs in browser</p>
+          <p className="text-[10px] text-zinc-700 mt-1">all-MiniLM-L6-v2 (384d) - server-side</p>
         </div>
       </div>
 
