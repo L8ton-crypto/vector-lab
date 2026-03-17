@@ -90,7 +90,7 @@ export default function Home() {
     try {
       const res = await fetch("/api/collections");
       const data = await res.json();
-      setCollections(data);
+      setCollections(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
     }

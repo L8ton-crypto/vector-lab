@@ -1,7 +1,7 @@
 const { neon } = require('@neondatabase/serverless');
 
 const DB_URL = 'postgresql://neondb_owner:npg_HRLp6F7oICcn@ep-rough-glade-ailx0054-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require';
-const HF_URL = 'https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2';
+const HF_URL = 'https://router.huggingface.co/hf-inference/models/BAAI/bge-small-en-v1.5';
 const HF_TOKEN = process.env.HF_TOKEN;
 
 async function embedBatch(texts) {
